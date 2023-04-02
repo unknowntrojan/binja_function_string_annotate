@@ -48,7 +48,7 @@ class InspectInBackground(BackgroundTaskThread):
                                     if functions.get(func.start) is None:
                                         functions[func.start] = []
                                     
-                                    functions[func.start].append(addr + i * ptr_width)     
+                                    functions[func.start].append(int(addr + i * ptr_width))     
                                     
         for addr, var in self.bv.data_vars.items():                                       
             if isinstance(var.type, Type):
@@ -63,7 +63,7 @@ class InspectInBackground(BackgroundTaskThread):
                             if func.start in functions:
                                 for comment_addr in functions[func.start]:
                                     if comments.get(comment_addr) is None:
-                                        comments[comment_addr] = []
+                                        comments[comment_addr] = (func.start, [])
                                     
                                     value = ""
                                     
@@ -74,18 +74,14 @@ class InspectInBackground(BackgroundTaskThread):
                                 
                                     value = f"\"{value}\""
                                     
-                                    comments[comment_addr].append(value)
+                                    comments[comment_addr][1].append(value)
         
-        for addr, comment in comments.items():
+        for addr, (func_addr, comment) in comments.items():
             if isinstance(comment, List):
                 ref_string = f"REF: {', '.join(list(set(comment)))}"
                
-                print(f"setting comment at {hex(addr)}")
                 self.comment_at(addr, ref_string)
-                
-                data_var = self.bv.get_data_var_at(addr)
-                if isinstance(data_var, DataVariable):
-                    self.comment_at(data_var.value, ref_string)
+                self.comment_at(func_addr, ref_string)
                 
         self.bv.update_analysis_and_wait()
 

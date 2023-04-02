@@ -31,9 +31,6 @@ class InspectInBackground(BackgroundTaskThread):
         # Dict<FuncAddr, &[String]>
         functions: dict[int, List[str]] = {}
         
-        # Dict<CommentAddr, [Comment]>
-        comments = {}
-        
         # for every string var, find all functions that reference it and tag them with the string
         for addr, var in self.bv.data_vars.items():
             if isinstance(var.type, Type):

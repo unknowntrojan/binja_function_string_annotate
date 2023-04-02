@@ -10,7 +10,7 @@ from binaryninja.function import Function
 class InspectInBackground(BackgroundTaskThread):    
     def __init__(self, bv: BinaryView):
         BackgroundTaskThread.__init__(
-            self, "Annotating functions in vTables...", True)
+            self, "Annotating functions...", True)
         self.bv = bv
 
     def comment_at(self, addr: int, comment: str):
@@ -27,7 +27,6 @@ class InspectInBackground(BackgroundTaskThread):
         assert isinstance(self.bv.arch, Architecture)
         ptr_width = self.bv.arch.address_size
         
-        # Dictionary of all functions contained in vTables
         # Dict<FuncAddr, &[String]>
         functions: dict[int, List[str]] = {}
         
@@ -65,6 +64,6 @@ def inspect(bv: BinaryView):
         background_thread = InspectInBackground(bv)
         background_thread.start()
 
-PluginCommand.register("Annotate Functions in vTables with Strings",
-                          "Annotate vTables with what strings the functions use",
+PluginCommand.register("Annotate references to functions with strings used",
+                          "Annotate references to functions with the strings that function references",
                           inspect)

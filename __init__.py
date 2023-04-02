@@ -13,6 +13,16 @@ class InspectInBackground(BackgroundTaskThread):
             self, "Annotating functions in vTables...", True)
         self.bv = bv
 
+    def comment_at(self, addr: int, comment: str):
+        original_comment = self.bv.get_comment_at(addr)
+        
+        original_comment = ''.join([line for line in original_comment.split('\n') if "REF: " not in line])
+        
+        if len(original_comment) > 0:
+            original_comment += '\n'
+            
+        self.bv.set_comment_at(addr, original_comment + comment)
+
     def run(self):
         assert isinstance(self.bv.arch, Architecture)
         ptr_width = self.bv.arch.address_size
@@ -26,7 +36,7 @@ class InspectInBackground(BackgroundTaskThread):
         
         for addr, var in self.bv.data_vars.items():
             if isinstance(var.name, str):
-                if "_vfTable" in var.name:
+                if "::vfTable" in var.name:
                     # find all functions referenced by the vTable
                     if isinstance(var.value, List):
                         # get the entry datavar
@@ -69,8 +79,14 @@ class InspectInBackground(BackgroundTaskThread):
         for addr, comment in comments.items():
             if isinstance(comment, List):
                 ref_string = f"REF: {', '.join(list(set(comment)))}"
-                self.bv.set_comment_at(addr, ref_string)
-        
+               
+                print(f"setting comment at {hex(addr)}")
+                self.comment_at(addr, ref_string)
+                
+                data_var = self.bv.get_data_var_at(addr)
+                if isinstance(data_var, DataVariable):
+                    self.comment_at(data_var.value, ref_string)
+                
         self.bv.update_analysis_and_wait()
 
         print("finished annotating functions!")

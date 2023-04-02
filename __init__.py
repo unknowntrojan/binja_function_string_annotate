@@ -28,60 +28,34 @@ class InspectInBackground(BackgroundTaskThread):
         ptr_width = self.bv.arch.address_size
         
         # Dictionary of all functions contained in vTables
-        # Dict<FuncAddr, &[EntryAddrToComment]>
-        functions = {}
+        # Dict<FuncAddr, &[String]>
+        functions: dict[int, List[str]] = {}
         
         # Dict<CommentAddr, [Comment]>
         comments = {}
         
+        # for every string var, find all functions that reference it and tag them with the string
         for addr, var in self.bv.data_vars.items():
-            if isinstance(var.name, str):
-                if "::vfTable" in var.name:
-                    # find all functions referenced by the vTable
-                    if isinstance(var.value, List):
-                        # get the entry datavar
-                        for i, value in enumerate(var.value):
-                                # get the function it points to
-                                func = self.bv.get_function_at(value)
-                                
-                                if isinstance(func, Function):
-                                    if functions.get(func.start) is None:
-                                        functions[func.start] = []
-                                    
-                                    functions[func.start].append(int(addr + i * ptr_width))     
-                                    
-        for addr, var in self.bv.data_vars.items():                                       
             if isinstance(var.type, Type):
-                # find every string that has code refs in our functions
-                typ = var.type
-                # if this datavar is a string
-                if (typ.type_class == TypeClass.ArrayTypeClass or typ.type_class == TypeClass.PointerTypeClass) and "char" in typ.get_string():
-                    # if this string is referenced by one of our functions
+                if var.type.type_class == TypeClass.ArrayTypeClass and "char" in var.type.get_string():
+                    # is string
                     for ref in var.code_refs:
-                        func = ref.function
-                        if isinstance(func, Function):
-                            if func.start in functions:
-                                for comment_addr in functions[func.start]:
-                                    if comments.get(comment_addr) is None:
-                                        comments[comment_addr] = (func.start, [])
+                        if isinstance(ref.function, Function):
+                            if functions.get(ref.function.start) is None:
+                                functions[ref.function.start] = []
                                     
-                                    value = ""
-                                    
-                                    if typ.type_class == TypeClass.ArrayTypeClass:
-                                        value = str(var.value[:-1], 'utf-8').replace('\n', '\\n')
-                                    elif typ.type_class == TypeClass.PointerTypeClass:
-                                        value = self.bv.get_string_at(var.value)
-                                
-                                    value = f"\"{value}\""
-                                    
-                                    comments[comment_addr][1].append(value)
+                            functions[ref.function.start].append(str(var.value[:-1], 'utf-8').replace('\n', '\\n'))
         
-        for addr, (func_addr, comment) in comments.items():
-            if isinstance(comment, List):
-                ref_string = f"REF: {', '.join(list(set(comment)))}"
-               
-                self.comment_at(addr, ref_string)
-                self.comment_at(func_addr, ref_string)
+        # for every function we just tagged with strings, annotate them and every reference to them
+        for func_addr, strings in functions.items():
+            if isinstance(strings, List):
+                ref_string = f"REF: {', '.join(list(set(strings)))}"
+                
+                for ref in self.bv.get_code_refs(func_addr):
+                    self.comment_at(ref.address, ref_string)
+                    
+                for addr in self.bv.get_data_refs(func_addr):
+                    self.comment_at(addr, ref_string)
                 
         self.bv.update_analysis_and_wait()
 

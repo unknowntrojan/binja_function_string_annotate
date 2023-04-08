@@ -1,5 +1,6 @@
-# binja_findstrings
+# binja_function_string_annotate
 
 Author: **unknowntrojan**
 
-Tries to find all strings referenced by datavars that have not been recognized as strings by binja
+Annotates all references to a function (such as VTables identified by ClassyPP, and direct code refs) with all the strings the function references.
+Slightly buggy when using "inline during analysis".

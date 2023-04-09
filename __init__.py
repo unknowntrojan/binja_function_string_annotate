@@ -16,16 +16,30 @@ class InspectInBackground(BackgroundTaskThread):
     def comment_at(self, addr: int, comment: str):
         original_comment = self.bv.get_comment_at(addr)
         
-        original_comment = ''.join([line for line in original_comment.split('\n') if "REF: " not in line])
+        original_comment = '\n'.join([line for line in original_comment.split('\n') if "REF: " not in line])
         
         if len(original_comment) > 0:
             original_comment += '\n'
             
         self.bv.set_comment_at(addr, original_comment + comment)
+        
+    def comment_at_func(self, func: bn.Function, addr: int, comment: str):
+        original_comment = func.get_comment_at(addr)
+        
+        original_comment = '\n'.join([line for line in original_comment.split('\n') if "REF: " not in line])
+        
+        if len(original_comment) > 0:
+            original_comment += '\n'
+            
+        func.set_comment_at(addr, original_comment + comment)
 
     def run(self):
-        assert isinstance(self.bv.arch, Architecture)
-        ptr_width = self.bv.arch.address_size
+        self.bv.begin_undo_actions()  
+        # clear all ref comments
+        for addr, comment in self.bv.address_comments.items():
+            original_comment = '\n'.join([line for line in comment.split('\n') if "REF: " not in line])
+
+            self.bv.set_comment_at(addr, original_comment)
         
         # Dict<FuncAddr, &[String]>
         functions: dict[int, List[str]] = {}
@@ -39,21 +53,38 @@ class InspectInBackground(BackgroundTaskThread):
                         if isinstance(ref.function, Function):
                             if functions.get(ref.function.start) is None:
                                 functions[ref.function.start] = []
-                                    
-                            functions[ref.function.start].append(str(var.value[:-1], 'utf-8').replace('\n', '\\n'))
+                                
+                            try:
+                                functions[ref.function.start].append(str(var.value[:-1], 'utf-8').replace('\n', '\\n'))
+                            except Exception as e:
+                                print(f"failed to set string reference to {var.address:04X} from {ref.function.start:04X}: {e} \"{var.value}\"")
         
         # for every function we just tagged with strings, annotate them and every reference to them
         for func_addr, strings in functions.items():
             if isinstance(strings, List):
-                ref_string = f"REF: {', '.join(list(set(strings)))}"
+                strings = list(set(strings))
+                # ', '
+                small_strings = [str.removesuffix(string, '\\n') for string in strings if len(string) < 32]
+                bigger_strings = [str.removesuffix(string, '\\n') for string in strings if len(string) >= 32]
+                
+                small_strings = ', '.join(small_strings)
+                
+                amt_of_bigger_strings = len(bigger_strings)
+                bigger_strings = '\nREF: '.join(bigger_strings)
+                
+                if amt_of_bigger_strings > 0:
+                    bigger_strings = f"REF: {bigger_strings}"
+                
+                ref_string = f"REF: {small_strings}{bigger_strings}"
                 
                 for ref in self.bv.get_code_refs(func_addr):
-                    self.comment_at(ref.address, ref_string)
+                    if isinstance(ref.function, bn.Function):
+                        self.comment_at_func(ref.function, ref.address, ref_string)
                     
                 for addr in self.bv.get_data_refs(func_addr):
                     self.comment_at(addr, ref_string)
                 
-        self.bv.update_analysis_and_wait()
+        self.bv.commit_undo_actions()
 
         print("finished annotating functions!")
 

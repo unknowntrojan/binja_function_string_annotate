@@ -73,7 +73,7 @@ class InspectInBackground(BackgroundTaskThread):
                 bigger_strings = '\nREF: '.join(bigger_strings)
                 
                 if amt_of_bigger_strings > 0:
-                    bigger_strings = f"REF: {bigger_strings}"
+                    bigger_strings = f"\nREF: {bigger_strings}"
                 
                 ref_string = f"REF: {small_strings}{bigger_strings}"
                 

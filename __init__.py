@@ -41,6 +41,12 @@ class InspectInBackground(BackgroundTaskThread):
 
             self.bv.set_comment_at(addr, original_comment)
         
+        for func in self.bv.functions:
+            for addr, comment in func.comments.items():
+                original_comment = '\n'.join([line for line in comment.split('\n') if "REF: " not in line])
+
+                func.set_comment_at(addr, original_comment)
+        
         # Dict<FuncAddr, &[String]>
         functions: dict[int, List[str]] = {}
         
@@ -66,6 +72,9 @@ class InspectInBackground(BackgroundTaskThread):
                 # ', '
                 small_strings = [str.removesuffix(string, '\\n') for string in strings if len(string) < 32]
                 bigger_strings = [str.removesuffix(string, '\\n') for string in strings if len(string) >= 32]
+                
+                if len(small_strings) == 0 and len(bigger_strings) == 0:
+                    continue
                 
                 small_strings = ', '.join(small_strings)
                 

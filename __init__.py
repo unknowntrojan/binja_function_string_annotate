@@ -85,13 +85,13 @@ class InspectInBackground(BackgroundTaskThread):
                     bigger_strings = f"\nREF: {bigger_strings}"
                 
                 ref_string = f"REF: {small_strings}{bigger_strings}"
+                    
+                for addr in self.bv.get_data_refs(func_addr):
+                    self.comment_at(addr, ref_string)
                 
                 for ref in self.bv.get_code_refs(func_addr):
                     if isinstance(ref.function, bn.Function):
                         self.comment_at_func(ref.function, ref.address, ref_string)
-                    
-                for addr in self.bv.get_data_refs(func_addr):
-                    self.comment_at(addr, ref_string)
                 
         self.bv.commit_undo_actions()
 
